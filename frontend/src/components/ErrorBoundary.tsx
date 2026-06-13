@@ -17,6 +17,10 @@ export default class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  componentDidCatch(error: Error, info: { componentStack: string }) {
+    console.error("[ErrorBoundary]", error.message, info.componentStack);
+  }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -25,6 +29,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             <div>
               <p className="text-2xl mb-3 text-red-400">Something went wrong</p>
               <p className="text-sm text-gray-500">{this.state.error?.message}</p>
+              <pre className="text-xs text-gray-600 mt-2 text-left overflow-auto max-h-40 max-w-xl">{this.state.error?.stack}</pre>
               <button
                 className="btn-ghost mt-4 text-sm"
                 onClick={() => this.setState({ hasError: false, error: null })}
