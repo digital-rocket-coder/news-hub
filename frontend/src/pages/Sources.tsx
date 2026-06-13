@@ -134,10 +134,11 @@ function AddSourceForm({ onDone }: { onDone: () => void }) {
 
 export default function Sources() {
   const [showForm, setShowForm] = useState(false);
-  const { data: sources = [], isLoading } = useQuery({
+  const { data: sourcesData, isLoading } = useQuery({
     queryKey: ["sources"],
     queryFn: getSources,
   });
+  const sources = Array.isArray(sourcesData) ? sourcesData : [];
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-4">

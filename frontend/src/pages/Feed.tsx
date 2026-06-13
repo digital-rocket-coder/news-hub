@@ -208,11 +208,12 @@ export default function Feed() {
     if (id) setSelectedId(Number(id));
   }, [searchParams]);
 
-  const { data: topics = [], isLoading } = useQuery<Topic[]>({
+  const { data: topicsData, isLoading } = useQuery<Topic[]>({
     queryKey: ["topics", showMuted],
     queryFn: () => getTopics(showMuted),
     refetchInterval: 60_000,
   });
+  const topics = Array.isArray(topicsData) ? topicsData : [];
 
   const recluster = useMutation({
     mutationFn: triggerRecluster,
