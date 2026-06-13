@@ -67,29 +67,36 @@ async def create_topic(body: TopicCreate, db: AsyncSession = Depends(get_db)):
 @router.get("/clusters/pending", response_model=list[ClusterCandidate])
 async def pending_clusters(db: AsyncSession = Depends(get_db)):
     """Return auto clusters awaiting user confirmation (topics with no user edits)."""
-    result = await db.execute(
-        select(Topic).where(Topic.type == TopicType.auto).order_by(Topic.name)
-    )
-    topics = result.scalars().all()
-    candidates: list[ClusterCandidate] = []
-    for t in topics:
-        arts = await db.execute(
-            select(Article.title)
-            .join(ArticleTopic, ArticleTopic.article_id == Article.id)
-            .where(ArticleTopic.topic_id == t.id)
-            .limit(5)
+    import logging as _log
+    _log.getLogger(__name__).info("pending_clusters called")
+    try:
+        result = await db.execute(
+            select(Topic).where(Topic.type == TopicType.auto).order_by(Topic.name)
         )
-        titles = [r[0] for r in arts.all()]
-        count_r = await db.execute(
-            select(func.count()).select_from(ArticleTopic).where(ArticleTopic.topic_id == t.id)
-        )
-        candidates.append(ClusterCandidate(
-            cluster_id=t.id,
-            suggested_name=t.name,
-            article_count=count_r.scalar_one(),
-            sample_titles=titles,
-        ))
-    return candidates
+        topics = result.scalars().all()
+        candidates: list[ClusterCandidate] = []
+        for t in topics:
+            arts = await db.execute(
+                select(Article.title)
+                .join(ArticleTopic, ArticleTopic.article_id == Article.id)
+                .where(ArticleTopic.topic_id == t.id)
+                .limit(5)
+            )
+            titles = [r[0] for r in arts.all()]
+            count_r = await db.execute(
+                select(func.count()).select_from(ArticleTopic).where(ArticleTopic.topic_id == t.id)
+            )
+            candidates.append(ClusterCandidate(
+                cluster_id=t.id,
+                suggested_name=t.name,
+                article_count=count_r.scalar_one(),
+                sample_titles=titles,
+            ))
+        return candidates
+    except Exception as exc:
+        import traceback
+        _log.getLogger(__name__).error("pending_clusters error: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.post("/clusters/confirm", status_code=200)

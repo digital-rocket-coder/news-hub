@@ -82,7 +82,7 @@ export default function DigestPage() {
         <div>
           <h1 className="text-xl font-bold text-white">Digest</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {digest ? `${digest.period_label} · ${digest.items.length} top topics` : "What matters right now"}
+            {digest ? `${digest.period_label} · ${digest.items?.length ?? 0} top topics` : "What matters right now"}
           </p>
         </div>
         <button onClick={() => refetch()} className="btn-ghost text-xs">
@@ -111,7 +111,7 @@ export default function DigestPage() {
       {/* Content */}
       {isLoading ? (
         <div className="text-sm text-gray-500">Generating digest…</div>
-      ) : !digest || digest.items.length === 0 ? (
+      ) : !digest?.items?.length ? (
         <div className="card text-center py-16">
           <p className="text-5xl mb-4">✦</p>
           <p className="text-gray-400 text-sm">Nothing to digest yet.</p>
