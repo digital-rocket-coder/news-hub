@@ -81,8 +81,10 @@ async def _embed_pending_task() -> None:
     from app.services import embeddings, clustering, trends
 
     BATCH = 50
+    MAX_CONSECUTIVE_ERRORS = 3
     total_done = 0
     total_failed = 0
+    consecutive_errors = 0
 
     while True:
         async with AsyncSessionLocal() as db:
@@ -99,9 +101,14 @@ async def _embed_pending_task() -> None:
         texts = [f"{a.title}. {a.description or a.full_text or ''}" for a in batch]
         try:
             vectors = await embeddings.embed_texts(texts)
+            consecutive_errors = 0
         except Exception as exc:
             logger.error("Batch embed failed: %s", exc)
             total_failed += len(batch)
+            consecutive_errors += 1
+            if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                logger.error("Too many consecutive errors — aborting embed-pending.")
+                return
             await asyncio.sleep(5)
             continue
 
@@ -114,7 +121,7 @@ async def _embed_pending_task() -> None:
 
         total_done += len(batch)
         logger.info("Embedded %d articles so far (%d failed)", total_done, total_failed)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.3)
 
     logger.info("Embed-pending done: %d embedded, %d failed", total_done, total_failed)
 
