@@ -6,10 +6,20 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
 import feedparser
+import httpx
 
 from app.connectors.base import BaseConnector, FetchedArticle
 
 logger = logging.getLogger(__name__)
+
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+}
 
 
 def _parse_date(entry: feedparser.FeedParserDict) -> datetime | None:
@@ -42,8 +52,24 @@ def _clean_html(text: str | None) -> str | None:
 
 class RSSConnector(BaseConnector):
     async def fetch(self, url: str) -> list[FetchedArticle]:
+        try:
+            async with httpx.AsyncClient(
+                follow_redirects=True,
+                timeout=30.0,
+                headers=_HEADERS,
+            ) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                raw = response.text
+        except httpx.HTTPStatusError as e:
+            logger.warning("HTTP %s fetching %s", e.response.status_code, url)
+            return []
+        except Exception as e:
+            logger.warning("Failed to fetch %s: %s", url, e)
+            return []
+
         loop = asyncio.get_event_loop()
-        feed = await loop.run_in_executor(None, feedparser.parse, url)
+        feed = await loop.run_in_executor(None, feedparser.parse, raw)
 
         if feed.bozo and not feed.entries:
             logger.warning("RSS parse error for %s: %s", url, feed.bozo_exception)
