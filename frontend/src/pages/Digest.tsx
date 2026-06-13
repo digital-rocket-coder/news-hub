@@ -48,7 +48,7 @@ function DigestItem({ item }: { item: DigestTopicItem }) {
         ))}
       </div>
 
-      {!expanded && item.key_articles.length > 0 && (
+      {!expanded && (item.key_articles?.length ?? 0) > 0 && (
         <div className="space-y-1">
           {item.key_articles.map((a) => (
             <a

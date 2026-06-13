@@ -24,7 +24,7 @@ export default function App() {
         <Route
           index
           element={
-            <ErrorBoundary>
+            <ErrorBoundary key="digest">
               <Suspense fallback={<PageLoader />}>
                 <DigestPage />
               </Suspense>
@@ -34,7 +34,7 @@ export default function App() {
         <Route
           path="feed"
           element={
-            <ErrorBoundary>
+            <ErrorBoundary key="feed">
               <Suspense fallback={<PageLoader />}>
                 <Feed />
               </Suspense>
@@ -44,7 +44,7 @@ export default function App() {
         <Route
           path="graph"
           element={
-            <ErrorBoundary>
+            <ErrorBoundary key="graph">
               <Suspense fallback={<PageLoader />}>
                 <GraphPage />
               </Suspense>
@@ -54,7 +54,7 @@ export default function App() {
         <Route
           path="sources"
           element={
-            <ErrorBoundary>
+            <ErrorBoundary key="sources">
               <Suspense fallback={<PageLoader />}>
                 <Sources />
               </Suspense>
