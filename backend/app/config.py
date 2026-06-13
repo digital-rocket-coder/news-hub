@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     RSS_POLL_INTERVAL_SECONDS: int = 3600
+    EMBEDDING_PROVIDER: str = "openai"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     EMBEDDING_DIMS: int = 1536
     CLAUDE_MODEL: str = "claude-sonnet-4-6"

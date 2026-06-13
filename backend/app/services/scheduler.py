@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.connectors.rss import RSSConnector
 from app.database import AsyncSessionLocal
-from app.models import Article, Source, SourceType
+from app.models import Article, Source
 from app.services import clustering, embeddings, trends
 
 logger = logging.getLogger(__name__)
@@ -26,10 +26,9 @@ async def poll_source(source_id: int) -> None:
             return
 
         logger.info("Polling source %d: %s", source.id, source.url)
-        connector: RSSConnector = _rss_connector  # only RSS for now
 
         try:
-            fetched = await connector.fetch(source.url)
+            fetched = await _rss_connector.fetch(source.url)
         except Exception as exc:
             logger.error("Fetch error for source %d: %s", source.id, exc)
             return
@@ -52,17 +51,19 @@ async def poll_source(source_id: int) -> None:
 
         if new_articles:
             await db.flush()
-            # Embed new articles
-            texts = [
-                f"{a.title}. {a.description or a.full_text or ''}"
-                for a in new_articles
-            ]
-            try:
-                vectors = await embeddings.embed_texts(texts)
-                for article, vec in zip(new_articles, vectors):
-                    article.embedding = vec
-            except Exception as exc:
-                logger.error("Embedding error: %s", exc)
+            if settings.OPENAI_API_KEY:
+                texts = [
+                    f"{a.title}. {a.description or a.full_text or ''}"
+                    for a in new_articles
+                ]
+                try:
+                    vectors = await embeddings.embed_texts(texts)
+                    for article, vec in zip(new_articles, vectors):
+                        article.embedding = vec
+                except Exception as exc:
+                    logger.error("Embedding error: %s", exc)
+            else:
+                logger.info("OPENAI_API_KEY not set — skipping embeddings.")
 
         source.last_polled_at = datetime.now(timezone.utc)
         await db.commit()
@@ -73,9 +74,9 @@ async def poll_source(source_id: int) -> None:
 
 
 async def _run_pipeline() -> None:
-    """Run clustering + trend update after new articles arrive."""
-    async with AsyncSessionLocal() as db:
-        await clustering.run_clustering(db)
+    if settings.OPENAI_API_KEY and settings.ANTHROPIC_API_KEY:
+        async with AsyncSessionLocal() as db:
+            await clustering.run_clustering(db)
     async with AsyncSessionLocal() as db:
         await trends.calculate_trends(db)
 
@@ -94,7 +95,7 @@ def start_scheduler() -> None:
         seconds=settings.RSS_POLL_INTERVAL_SECONDS,
         id="poll_all_sources",
         replace_existing=True,
-        next_run_time=datetime.now(timezone.utc),  # run immediately on startup
+        next_run_time=datetime.now(timezone.utc),
     )
     scheduler.start()
     logger.info("Scheduler started (interval=%ds).", settings.RSS_POLL_INTERVAL_SECONDS)
