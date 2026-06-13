@@ -8,6 +8,12 @@ const baseURL = import.meta.env.VITE_API_URL
 
 const api = axios.create({ baseURL });
 
+// Don't throw on 4xx/5xx — let TanStack Query handle isError state
+api.interceptors.response.use(
+  (res) => res,
+  (err) => Promise.reject(err)
+);
+
 export default api;
 
 // ── Sources ──────────────────────────────────────────────────────────────────

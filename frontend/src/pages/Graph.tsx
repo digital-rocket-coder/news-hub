@@ -1,10 +1,12 @@
-import { useRef, useCallback, useState, useEffect } from "react";
+import { useRef, useCallback, useState, useEffect, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import ForceGraph2D from "react-force-graph-2d";
 import { getGraph } from "@/api/client";
 import type { GraphData, GraphNode, GraphEdge } from "@/types";
 import TrendBadge from "@/components/TrendBadge";
+
+// Dynamic import to isolate canvas/D3 initialisation from the module graph
+const ForceGraph2D = lazy(() => import("react-force-graph-2d"));
 
 const TREND_COLORS: Record<string, string> = {
   rising: "#34d399",
@@ -58,9 +60,7 @@ export default function GraphPage() {
     : { nodes: [], links: [] };
 
   const handleNodeClick = useCallback(
-    (node: any) => {
-      navigate(`/feed?topic=${node.id}`);
-    },
+    (node: any) => navigate(`/feed?topic=${node.id}`),
     [navigate]
   );
 
@@ -72,7 +72,6 @@ export default function GraphPage() {
     const r = nodeSize(node as GraphNode);
     const color = nodeColor(node as GraphNode);
 
-    // Glow
     ctx.shadowColor = color;
     ctx.shadowBlur = 8;
     ctx.beginPath();
@@ -81,21 +80,20 @@ export default function GraphPage() {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Label
     const fontSize = Math.max(8, Math.min(12, r + 2));
     ctx.font = `${fontSize}px Inter, sans-serif`;
     ctx.fillStyle = "#e5e7eb";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const label = (node as GraphNode).name.length > 18
-      ? (node as GraphNode).name.slice(0, 16) + "…"
-      : (node as GraphNode).name;
+    const label =
+      (node as GraphNode).name.length > 18
+        ? (node as GraphNode).name.slice(0, 16) + "…"
+        : (node as GraphNode).name;
     ctx.fillText(label, node.x, node.y + r + fontSize);
   }, []);
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-white">Topic Graph</h1>
@@ -111,14 +109,16 @@ export default function GraphPage() {
             { color: "#9ca3af", label: "Stable" },
           ].map(({ color, label }) => (
             <span key={label} className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full inline-block" style={{ background: color }} />
+              <span
+                className="w-2 h-2 rounded-full inline-block"
+                style={{ background: color }}
+              />
               {label}
             </span>
           ))}
         </div>
       </div>
 
-      {/* Graph */}
       <div ref={containerRef} className="flex-1 relative overflow-hidden bg-[#0a0a18]">
         {isLoading ? (
           <div className="flex items-center justify-center h-full text-gray-500 text-sm">
@@ -128,31 +128,40 @@ export default function GraphPage() {
           <div className="flex items-center justify-center h-full text-center px-8">
             <div>
               <p className="text-5xl mb-4">◎</p>
-              <p className="text-gray-400 text-sm">Graph will appear once topics are clustered</p>
+              <p className="text-gray-400 text-sm">
+                Graph will appear once topics are clustered
+              </p>
             </div>
           </div>
         ) : (
-          <ForceGraph2D
-            ref={graphRef}
-            width={dims.w}
-            height={dims.h}
-            graphData={fgData}
-            nodeId="id"
-            linkSource="source"
-            linkTarget="target"
-            nodeCanvasObject={drawNode}
-            nodeCanvasObjectMode={() => "replace"}
-            onNodeClick={handleNodeClick}
-            onNodeHover={handleNodeHover}
-            linkColor={() => "#37415180"}
-            linkWidth={(link: any) => (link.strength ?? 0.3) * 3}
-            backgroundColor="#0a0a18"
-            cooldownTicks={100}
-            nodeLabel=""
-          />
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                Loading graph engine…
+              </div>
+            }
+          >
+            <ForceGraph2D
+              ref={graphRef}
+              width={dims.w}
+              height={dims.h}
+              graphData={fgData}
+              nodeId="id"
+              linkSource="source"
+              linkTarget="target"
+              nodeCanvasObject={drawNode}
+              nodeCanvasObjectMode={() => "replace"}
+              onNodeClick={handleNodeClick}
+              onNodeHover={handleNodeHover}
+              linkColor={() => "#374151aa"}
+              linkWidth={(link: any) => (link.strength ?? 0.3) * 3}
+              backgroundColor="#0a0a18"
+              cooldownTicks={100}
+              nodeLabel=""
+            />
+          </Suspense>
         )}
 
-        {/* Hover tooltip */}
         {hovered && (
           <div className="absolute top-4 left-4 card pointer-events-none z-10 min-w-[160px]">
             <div className="flex items-center gap-2">
