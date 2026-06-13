@@ -11,8 +11,8 @@ const api = axios.create({ baseURL });
 // Reject if the server returns HTML instead of JSON (e.g. Vercel fallback page)
 api.interceptors.response.use(
   (res) => {
-    const ct = res.headers["content-type"] ?? "";
-    if (ct.includes("text/html")) {
+    const ct = res.headers["content-type"];
+    if (typeof ct === "string" && ct.includes("text/html")) {
       return Promise.reject(new Error("Expected JSON but received HTML"));
     }
     return res;
