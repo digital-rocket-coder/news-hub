@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import asyncio
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.database import get_db
+from app.config import settings
+from app.database import AsyncSessionLocal, get_db
 from app.models import Article, Source
 from app.schemas import ArticleOut, ArticleUpdate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 
@@ -60,6 +66,64 @@ async def update_article(article_id: int, body: ArticleUpdate, db: AsyncSession 
     await db.commit()
     await db.refresh(article)
     return _to_out(article)
+
+
+@router.post("/embed-pending", status_code=202)
+async def embed_pending_articles(background_tasks: BackgroundTasks):
+    """Embed all articles that have no embedding yet, then run clustering."""
+    if not settings.OPENAI_API_KEY:
+        raise HTTPException(400, "OPENAI_API_KEY is not configured.")
+    background_tasks.add_task(_embed_pending_task)
+    return {"detail": "Embedding job started in background."}
+
+
+async def _embed_pending_task() -> None:
+    from app.services import embeddings, clustering, trends
+
+    BATCH = 50
+    total_done = 0
+    total_failed = 0
+
+    while True:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Article)
+                .where(Article.embedding.is_(None))
+                .limit(BATCH)
+            )
+            batch = list(result.scalars().all())
+
+        if not batch:
+            break
+
+        texts = [f"{a.title}. {a.description or a.full_text or ''}" for a in batch]
+        try:
+            vectors = await embeddings.embed_texts(texts)
+        except Exception as exc:
+            logger.error("Batch embed failed: %s", exc)
+            total_failed += len(batch)
+            await asyncio.sleep(5)
+            continue
+
+        async with AsyncSessionLocal() as db:
+            for article, vec in zip(batch, vectors):
+                obj = await db.get(Article, article.id)
+                if obj:
+                    obj.embedding = vec
+            await db.commit()
+
+        total_done += len(batch)
+        logger.info("Embedded %d articles so far (%d failed)", total_done, total_failed)
+        await asyncio.sleep(0.5)
+
+    logger.info("Embed-pending done: %d embedded, %d failed", total_done, total_failed)
+
+    if settings.OPENAI_API_KEY and settings.ANTHROPIC_API_KEY:
+        async with AsyncSessionLocal() as db:
+            await clustering.run_clustering(db)
+    async with AsyncSessionLocal() as db:
+        await trends.calculate_trends(db)
+    logger.info("Pipeline complete after embed-pending.")
 
 
 @router.post("/mark-all-read", status_code=200)
