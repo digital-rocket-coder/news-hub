@@ -43,7 +43,7 @@ class Source(Base):
     __tablename__ = "sources"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    type: Mapped[SourceType] = mapped_column(Enum(SourceType), default=SourceType.rss)
+    type: Mapped[SourceType] = mapped_column(Enum(SourceType, native_enum=False), default=SourceType.rss)
     url: Mapped[str] = mapped_column(String(2048), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     category: Mapped[str | None] = mapped_column(String(128))
@@ -85,11 +85,11 @@ class Topic(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
-    type: Mapped[TopicType] = mapped_column(Enum(TopicType), default=TopicType.auto)
+    type: Mapped[TopicType] = mapped_column(Enum(TopicType, native_enum=False), default=TopicType.auto)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(settings.EMBEDDING_DIMS))
     keywords: Mapped[str | None] = mapped_column(Text)
     is_muted: Mapped[bool] = mapped_column(Boolean, default=False)
-    trend: Mapped[TrendDirection | None] = mapped_column(Enum(TrendDirection))
+    trend: Mapped[TrendDirection | None] = mapped_column(Enum(TrendDirection, native_enum=False))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     cluster_id: Mapped[int | None] = mapped_column(Integer)
 
