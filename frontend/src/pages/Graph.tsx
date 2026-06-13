@@ -144,9 +144,8 @@ export default function GraphPage() {
             nodeCanvasObjectMode={() => "replace"}
             onNodeClick={handleNodeClick}
             onNodeHover={handleNodeHover}
-            linkColor={() => "#374151"}
+            linkColor={() => "#37415180"}
             linkWidth={(link: any) => (link.strength ?? 0.3) * 3}
-            linkOpacity={0.5}
             backgroundColor="#0a0a18"
             cooldownTicks={100}
             nodeLabel=""
