@@ -48,16 +48,16 @@ export default function GraphPage() {
     return () => obs.disconnect();
   }, []);
 
-  const fgData = graphData
-    ? {
-        nodes: graphData.nodes.map((n) => ({ ...n })),
-        links: graphData.edges.map((e: GraphEdge) => ({
-          source: e.source,
-          target: e.target,
-          strength: e.strength,
-        })),
-      }
-    : { nodes: [], links: [] };
+  const safeNodes = Array.isArray(graphData?.nodes) ? graphData.nodes : [];
+  const safeEdges = Array.isArray(graphData?.edges) ? graphData.edges : [];
+  const fgData = {
+    nodes: safeNodes.map((n) => ({ ...n })),
+    links: safeEdges.map((e: GraphEdge) => ({
+      source: e.source,
+      target: e.target,
+      strength: e.strength,
+    })),
+  };
 
   const handleNodeClick = useCallback(
     (node: any) => navigate(`/feed?topic=${node.id}`),
