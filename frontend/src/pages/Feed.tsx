@@ -19,10 +19,11 @@ import clsx from "clsx";
 
 function ClusterReview() {
   const qc = useQueryClient();
-  const { data: clusters = [] } = useQuery<ClusterCandidate[]>({
+  const { data } = useQuery<ClusterCandidate[]>({
     queryKey: ["clusters"],
     queryFn: getClusters,
   });
+  const clusters = Array.isArray(data) ? data : [];
 
   const confirm = useMutation({
     mutationFn: confirmCluster,
