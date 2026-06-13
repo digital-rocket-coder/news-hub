@@ -6,9 +6,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     RSS_POLL_INTERVAL_SECONDS: int = 3600
-    EMBEDDING_PROVIDER: str = "openai"
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
-    EMBEDDING_DIMS: int = 1536
+    EMBEDDING_PROVIDER: str = "local"
+    EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    EMBEDDING_DIMS: int = 384
     CLAUDE_MODEL: str = "claude-sonnet-4-6"
     CORS_ORIGINS: str = "http://localhost:5173"
     HDBSCAN_MIN_CLUSTER_SIZE: int = 3
