@@ -42,6 +42,23 @@ async def list_articles(
     return [_to_out(a) for a in result.scalars().all()]
 
 
+@router.get("/stats")
+async def article_stats(db: AsyncSession = Depends(get_db)):
+    """Debug: count total articles and those with embeddings."""
+    total = await db.scalar(select(func.count()).select_from(Article))
+    with_emb = await db.scalar(
+        select(func.count()).select_from(Article).where(Article.embedding.is_not(None))
+    )
+    return {
+        "total": total,
+        "with_embedding": with_emb,
+        "without_embedding": total - with_emb,
+        "embedding_provider": settings.EMBEDDING_PROVIDER,
+        "embedding_model": settings.EMBEDDING_MODEL,
+        "embedding_dims": settings.EMBEDDING_DIMS,
+    }
+
+
 @router.get("/{article_id}", response_model=ArticleOut)
 async def get_article(article_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -66,23 +83,6 @@ async def update_article(article_id: int, body: ArticleUpdate, db: AsyncSession 
     await db.commit()
     await db.refresh(article)
     return _to_out(article)
-
-
-@router.get("/stats")
-async def article_stats(db: AsyncSession = Depends(get_db)):
-    """Debug: count total articles and those with embeddings."""
-    total = await db.scalar(select(func.count()).select_from(Article))
-    with_emb = await db.scalar(
-        select(func.count()).select_from(Article).where(Article.embedding.is_not(None))
-    )
-    return {
-        "total": total,
-        "with_embedding": with_emb,
-        "without_embedding": total - with_emb,
-        "embedding_provider": settings.EMBEDDING_PROVIDER,
-        "embedding_model": settings.EMBEDDING_MODEL,
-        "embedding_dims": settings.EMBEDDING_DIMS,
-    }
 
 
 @router.post("/embed-pending", status_code=202)
