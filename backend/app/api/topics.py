@@ -186,6 +186,31 @@ async def get_topic_trends(topic_id: int, db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.post("/reset-auto", status_code=200)
+async def reset_auto_topics(db: AsyncSession = Depends(get_db)):
+    """Delete all auto-generated topics and re-run clustering from scratch."""
+    from sqlalchemy import delete
+    result = await db.execute(
+        select(func.count()).select_from(Topic).where(Topic.type == TopicType.auto)
+    )
+    count = result.scalar_one()
+    await db.execute(delete(Topic).where(Topic.type == TopicType.auto))
+    await db.commit()
+
+    import asyncio
+    from app.database import AsyncSessionLocal
+    from app.services import clustering as cl, trends as tr
+
+    async def run():
+        async with AsyncSessionLocal() as s:
+            await cl.run_clustering(s)
+        async with AsyncSessionLocal() as s:
+            await tr.calculate_trends(s)
+
+    asyncio.create_task(run())
+    return {"deleted": count, "detail": "Auto topics deleted; re-clustering started."}
+
+
 @router.post("/recluster", status_code=202)
 async def trigger_recluster(db: AsyncSession = Depends(get_db)):
     """Manually trigger a re-clustering + trend update."""
