@@ -4,7 +4,7 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -66,6 +66,23 @@ async def update_article(article_id: int, body: ArticleUpdate, db: AsyncSession 
     await db.commit()
     await db.refresh(article)
     return _to_out(article)
+
+
+@router.get("/stats")
+async def article_stats(db: AsyncSession = Depends(get_db)):
+    """Debug: count total articles and those with embeddings."""
+    total = await db.scalar(select(func.count()).select_from(Article))
+    with_emb = await db.scalar(
+        select(func.count()).select_from(Article).where(Article.embedding.is_not(None))
+    )
+    return {
+        "total": total,
+        "with_embedding": with_emb,
+        "without_embedding": total - with_emb,
+        "embedding_provider": settings.EMBEDDING_PROVIDER,
+        "embedding_model": settings.EMBEDDING_MODEL,
+        "embedding_dims": settings.EMBEDDING_DIMS,
+    }
 
 
 @router.post("/embed-pending", status_code=202)
