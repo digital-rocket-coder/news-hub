@@ -6,7 +6,7 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import defer, joinedload
 
 from app.config import settings
 from app.database import AsyncSessionLocal, get_db
@@ -32,7 +32,10 @@ async def list_articles(
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(Article).options(joinedload(Article.source)).order_by(Article.published_at.desc())
+    q = select(Article).options(
+        defer(Article.embedding),
+        joinedload(Article.source),
+    ).order_by(Article.published_at.desc())
     if is_read is not None:
         q = q.where(Article.is_read == is_read)
     if is_bookmarked is not None:
