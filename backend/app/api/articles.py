@@ -71,7 +71,7 @@ async def update_article(article_id: int, body: ArticleUpdate, db: AsyncSession 
 @router.post("/embed-pending", status_code=202)
 async def embed_pending_articles(background_tasks: BackgroundTasks):
     """Embed all articles that have no embedding yet, then run clustering."""
-    if not settings.OPENAI_API_KEY:
+    if settings.EMBEDDING_PROVIDER != "local" and not settings.OPENAI_API_KEY:
         raise HTTPException(400, "OPENAI_API_KEY is not configured.")
     background_tasks.add_task(_embed_pending_task)
     return {"detail": "Embedding job started in background."}
@@ -125,9 +125,8 @@ async def _embed_pending_task() -> None:
 
     logger.info("Embed-pending done: %d embedded, %d failed", total_done, total_failed)
 
-    if settings.OPENAI_API_KEY and settings.ANTHROPIC_API_KEY:
-        async with AsyncSessionLocal() as db:
-            await clustering.run_clustering(db)
+    async with AsyncSessionLocal() as db:
+        await clustering.run_clustering(db)
     async with AsyncSessionLocal() as db:
         await trends.calculate_trends(db)
     logger.info("Pipeline complete after embed-pending.")

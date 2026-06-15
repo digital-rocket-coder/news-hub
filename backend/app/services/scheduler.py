@@ -51,19 +51,16 @@ async def poll_source(source_id: int) -> None:
 
         if new_articles:
             await db.flush()
-            if settings.OPENAI_API_KEY:
-                texts = [
-                    f"{a.title}. {a.description or a.full_text or ''}"
-                    for a in new_articles
-                ]
-                try:
-                    vectors = await embeddings.embed_texts(texts)
-                    for article, vec in zip(new_articles, vectors):
-                        article.embedding = vec
-                except Exception as exc:
-                    logger.error("Embedding error: %s", exc)
-            else:
-                logger.info("OPENAI_API_KEY not set — skipping embeddings.")
+            texts = [
+                f"{a.title}. {a.description or a.full_text or ''}"
+                for a in new_articles
+            ]
+            try:
+                vectors = await embeddings.embed_texts(texts)
+                for article, vec in zip(new_articles, vectors):
+                    article.embedding = vec
+            except Exception as exc:
+                logger.error("Embedding error: %s", exc)
 
         source.last_polled_at = datetime.now(timezone.utc)
         await db.commit()
@@ -74,9 +71,8 @@ async def poll_source(source_id: int) -> None:
 
 
 async def _run_pipeline() -> None:
-    if settings.OPENAI_API_KEY and settings.ANTHROPIC_API_KEY:
-        async with AsyncSessionLocal() as db:
-            await clustering.run_clustering(db)
+    async with AsyncSessionLocal() as db:
+        await clustering.run_clustering(db)
     async with AsyncSessionLocal() as db:
         await trends.calculate_trends(db)
 
