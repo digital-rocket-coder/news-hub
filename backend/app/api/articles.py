@@ -45,6 +45,46 @@ async def list_articles(
     return [_to_out(a) for a in result.scalars().all()]
 
 
+@router.get("/debug")
+async def article_debug(db: AsyncSession = Depends(get_db)):
+    """Diagnose articles endpoint errors."""
+    import traceback
+    results = {}
+    try:
+        total = await db.scalar(select(func.count()).select_from(Article))
+        results["total_articles"] = total
+    except Exception as e:
+        results["count_error"] = str(e)
+
+    try:
+        q = select(Article.id, Article.source_id).limit(3)
+        rows = (await db.execute(q)).all()
+        results["sample_ids"] = [(r.id, r.source_id) for r in rows]
+    except Exception as e:
+        results["sample_error"] = str(e)
+
+    try:
+        from sqlalchemy.orm import joinedload
+        q = select(Article).options(joinedload(Article.source)).order_by(Article.published_at.desc()).limit(1)
+        row = (await db.execute(q)).scalars().first()
+        if row:
+            results["first_article"] = {"id": row.id, "source": row.source.name if row.source else None}
+        else:
+            results["first_article"] = None
+    except Exception as e:
+        results["join_error"] = traceback.format_exc()
+
+    try:
+        from sqlalchemy.orm import defer, joinedload
+        q = select(Article).options(defer(Article.embedding), joinedload(Article.source)).order_by(Article.published_at.desc()).limit(1)
+        row = (await db.execute(q)).scalars().first()
+        results["defer_works"] = row.id if row else "no rows"
+    except Exception as e:
+        results["defer_error"] = traceback.format_exc()
+
+    return results
+
+
 @router.get("/stats")
 async def article_stats(db: AsyncSession = Depends(get_db)):
     """Debug: count total articles and those with embeddings."""
