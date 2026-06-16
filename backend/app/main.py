@@ -17,10 +17,18 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables (idempotent; migrations handle schema changes)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    start_scheduler()
+    import sys, traceback
+    try:
+        print("STARTUP: connecting to DB...", flush=True)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("STARTUP: DB ready, starting scheduler...", flush=True)
+        start_scheduler()
+        print("STARTUP: done.", flush=True)
+    except Exception as e:
+        print(f"STARTUP ERROR: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc()
+        raise
     yield
     stop_scheduler()
 
