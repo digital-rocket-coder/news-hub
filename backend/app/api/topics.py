@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import defer, joinedload, selectinload
 
 from app.database import get_db
 from app.models import Article, ArticleTopic, Source, Topic, TopicTrend, TopicType
@@ -199,7 +199,7 @@ async def get_topic(
 
     arts_result = await db.execute(
         select(Article)
-        .options(joinedload(Article.source))
+        .options(defer(Article.embedding), joinedload(Article.source))
         .join(ArticleTopic, ArticleTopic.article_id == Article.id)
         .where(ArticleTopic.topic_id == topic_id)
         .order_by(Article.published_at.desc())

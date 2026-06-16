@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import defer, joinedload
 
 from app.database import get_db
 from app.models import Article, ArticleTopic, Topic, TopicTrend, TrendDirection
@@ -66,7 +66,7 @@ async def get_digest(
 
         arts_result = await db.execute(
             select(Article)
-            .options(joinedload(Article.source))
+            .options(defer(Article.embedding), joinedload(Article.source))
             .join(ArticleTopic, ArticleTopic.article_id == Article.id)
             .where(
                 ArticleTopic.topic_id == topic_id,
