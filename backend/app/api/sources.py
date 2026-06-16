@@ -33,6 +33,16 @@ async def create_source(body: SourceCreate, db: AsyncSession = Depends(get_db)):
     return source
 
 
+@router.post("/poll-all", status_code=202)
+async def trigger_poll_all(db: AsyncSession = Depends(get_db)):
+    import asyncio
+    result = await db.execute(select(Source.id))
+    ids = result.scalars().all()
+    for sid in ids:
+        asyncio.create_task(poll_source(sid))
+    return {"detail": f"Poll triggered for {len(ids)} sources."}
+
+
 @router.get("/{source_id}", response_model=SourceOut)
 async def get_source(source_id: int, db: AsyncSession = Depends(get_db)):
     source = await db.get(Source, source_id)
@@ -60,16 +70,6 @@ async def delete_source(source_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Source not found.")
     await db.delete(source)
     await db.commit()
-
-
-@router.post("/poll-all", status_code=202)
-async def trigger_poll_all(db: AsyncSession = Depends(get_db)):
-    import asyncio
-    result = await db.execute(select(Source.id))
-    ids = result.scalars().all()
-    for sid in ids:
-        asyncio.create_task(poll_source(sid))
-    return {"detail": f"Poll triggered for {len(ids)} sources."}
 
 
 @router.post("/{source_id}/poll", status_code=202)
