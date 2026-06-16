@@ -192,6 +192,19 @@ async def _embed_pending_task() -> None:
     logger.info("Pipeline complete after embed-pending.")
 
 
+@router.post("/cleanup-orphans", status_code=200)
+async def cleanup_orphan_articles(db: AsyncSession = Depends(get_db)):
+    """Delete articles whose source no longer exists (orphaned by source deletion without CASCADE)."""
+    from sqlalchemy import delete
+    from app.models import Source
+    existing_source_ids = (await db.execute(select(Source.id))).scalars().all()
+    result = await db.execute(
+        delete(Article).where(Article.source_id.not_in(existing_source_ids))
+    )
+    await db.commit()
+    return {"deleted": result.rowcount}
+
+
 @router.post("/mark-all-read", status_code=200)
 async def mark_all_read(topic_id: int | None = Query(None), db: AsyncSession = Depends(get_db)):
     from sqlalchemy import update
