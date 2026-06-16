@@ -54,7 +54,36 @@ async def list_topics(
         q = q.where(Topic.is_muted == False)
     result = await db.execute(q)
     topics = result.scalars().all()
-    return [await _topic_out(t, db) for t in topics]
+
+    if not topics:
+        return []
+
+    topic_ids = [t.id for t in topics]
+
+    # Single query for total article counts
+    counts_result = await db.execute(
+        select(ArticleTopic.topic_id, func.count().label("cnt"))
+        .where(ArticleTopic.topic_id.in_(topic_ids))
+        .group_by(ArticleTopic.topic_id)
+    )
+    counts = {row.topic_id: row.cnt for row in counts_result}
+
+    # Single query for unread counts
+    unread_result = await db.execute(
+        select(ArticleTopic.topic_id, func.count().label("cnt"))
+        .join(Article, Article.id == ArticleTopic.article_id)
+        .where(ArticleTopic.topic_id.in_(topic_ids), Article.is_read == False)
+        .group_by(ArticleTopic.topic_id)
+    )
+    unread = {row.topic_id: row.cnt for row in unread_result}
+
+    out = []
+    for t in topics:
+        o = TopicOut.model_validate(t)
+        o.article_count = counts.get(t.id, 0)
+        o.unread_count = unread.get(t.id, 0)
+        out.append(o)
+    return out
 
 
 @router.post("/", response_model=TopicOut, status_code=201)
