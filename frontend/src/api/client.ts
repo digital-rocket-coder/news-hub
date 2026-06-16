@@ -31,6 +31,7 @@ export const updateSource = (id: number, body: object) =>
   api.patch(`/sources/${id}`, body).then((r) => r.data);
 export const deleteSource = (id: number) => api.delete(`/sources/${id}`);
 export const pollSource = (id: number) => api.post(`/sources/${id}/poll`);
+export const pollAllSources = () => api.post("/sources/poll-all").then((r) => r.data);
 
 // ── Articles ─────────────────────────────────────────────────────────────────
 

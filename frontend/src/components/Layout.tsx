@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
+import { pollAllSources } from "../api/client";
 
 const NAV = [
   { to: "/", label: "Digest", icon: "✦" },
@@ -9,6 +12,27 @@ const NAV = [
 ];
 
 export default function Layout() {
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const qc = useQueryClient();
+
+  async function handleRefresh() {
+    setLoading(true);
+    setDone(false);
+    try {
+      await pollAllSources();
+      // Give sources ~8s to fetch, then invalidate all queries
+      setTimeout(() => {
+        qc.invalidateQueries();
+        setLoading(false);
+        setDone(true);
+        setTimeout(() => setDone(false), 3000);
+      }, 8000);
+    } catch {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -42,6 +66,29 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+
+        {/* Refresh button */}
+        <div className="px-3 pb-4">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className={clsx(
+              "w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+              done
+                ? "bg-green-500/10 text-green-400"
+                : loading
+                ? "bg-gray-800/50 text-gray-500 cursor-not-allowed"
+                : "bg-accent/10 text-accent hover:bg-accent/20"
+            )}
+          >
+            <span
+              className={clsx("text-base leading-none", loading && "animate-spin")}
+            >
+              {done ? "✓" : "↻"}
+            </span>
+            {done ? "Updated!" : loading ? "Fetching…" : "Refresh"}
+          </button>
+        </div>
 
         {/* Footer */}
         <div className="px-5 pb-5">
