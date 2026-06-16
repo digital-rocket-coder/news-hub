@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -41,6 +41,8 @@ async def _topic_out(topic: Topic, db: AsyncSession) -> TopicOut:
     out.unread_count = unread_count
     return out
 
+
+# ── Static routes (must be before /{topic_id} wildcards) ────────────────────
 
 @router.get("/", response_model=list[TopicOut])
 async def list_topics(
@@ -111,6 +113,49 @@ async def confirm_cluster(body: ClusterConfirm, db: AsyncSession = Depends(get_d
     await db.commit()
     return {"detail": "ok"}
 
+
+@router.post("/reset-auto", status_code=200)
+async def reset_auto_topics(db: AsyncSession = Depends(get_db)):
+    """Delete all auto-generated topics and re-run clustering from scratch."""
+    result = await db.execute(
+        select(func.count()).select_from(Topic).where(Topic.type == TopicType.auto)
+    )
+    count = result.scalar_one()
+    await db.execute(delete(Topic).where(Topic.type == TopicType.auto))
+    await db.commit()
+
+    import asyncio
+    from app.database import AsyncSessionLocal
+    from app.services import clustering as cl, trends as tr
+
+    async def run():
+        async with AsyncSessionLocal() as s:
+            await cl.run_clustering(s)
+        async with AsyncSessionLocal() as s:
+            await tr.calculate_trends(s)
+
+    asyncio.create_task(run())
+    return {"deleted": count, "detail": "Auto topics deleted; re-clustering started."}
+
+
+@router.post("/recluster", status_code=202)
+async def trigger_recluster(db: AsyncSession = Depends(get_db)):
+    """Manually trigger a re-clustering + trend update."""
+    import asyncio
+    from app.database import AsyncSessionLocal
+    from app.services import clustering as cl, trends as tr
+
+    async def run():
+        async with AsyncSessionLocal() as s:
+            await cl.run_clustering(s)
+        async with AsyncSessionLocal() as s:
+            await tr.calculate_trends(s)
+
+    asyncio.create_task(run())
+    return {"detail": "Re-clustering triggered."}
+
+
+# ── Parametric routes ────────────────────────────────────────────────────────
 
 @router.get("/{topic_id}", response_model=TopicWithArticles)
 async def get_topic(
@@ -184,45 +229,3 @@ async def get_topic_trends(topic_id: int, db: AsyncSession = Depends(get_db)):
         direction=topic.trend,
         points=points,
     )
-
-
-@router.post("/reset-auto", status_code=200)
-async def reset_auto_topics(db: AsyncSession = Depends(get_db)):
-    """Delete all auto-generated topics and re-run clustering from scratch."""
-    from sqlalchemy import delete
-    result = await db.execute(
-        select(func.count()).select_from(Topic).where(Topic.type == TopicType.auto)
-    )
-    count = result.scalar_one()
-    await db.execute(delete(Topic).where(Topic.type == TopicType.auto))
-    await db.commit()
-
-    import asyncio
-    from app.database import AsyncSessionLocal
-    from app.services import clustering as cl, trends as tr
-
-    async def run():
-        async with AsyncSessionLocal() as s:
-            await cl.run_clustering(s)
-        async with AsyncSessionLocal() as s:
-            await tr.calculate_trends(s)
-
-    asyncio.create_task(run())
-    return {"deleted": count, "detail": "Auto topics deleted; re-clustering started."}
-
-
-@router.post("/recluster", status_code=202)
-async def trigger_recluster(db: AsyncSession = Depends(get_db)):
-    """Manually trigger a re-clustering + trend update."""
-    import asyncio
-    from app.database import AsyncSessionLocal
-    from app.services import clustering as cl, trends as tr
-
-    async def run():
-        async with AsyncSessionLocal() as s:
-            await cl.run_clustering(s)
-        async with AsyncSessionLocal() as s:
-            await tr.calculate_trends(s)
-
-    asyncio.create_task(run())
-    return {"detail": "Re-clustering triggered."}
