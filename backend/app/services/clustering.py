@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,16 +14,29 @@ from app.services.llm import generate_topic_name
 
 logger = logging.getLogger(__name__)
 
+_clustering_lock = asyncio.Lock()
+
 
 async def run_clustering(db: AsyncSession) -> int:
-    """Cluster all embedded articles into topics. Returns number of topics created/updated."""
+    """Cluster recent embedded articles into topics. Returns number of topics created/updated."""
+    if _clustering_lock.locked():
+        logger.info("Clustering already running, skipping.")
+        return 0
+    async with _clustering_lock:
+        return await _do_clustering(db)
+
+
+async def _do_clustering(db: AsyncSession) -> int:
     import numpy as np
     from sklearn.cluster import HDBSCAN
     from sklearn.preprocessing import normalize
 
-    # 1. Load articles with embeddings
+    # 1. Load recent articles with embeddings (last 7 days only to limit memory)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     result = await db.execute(
-        select(Article.id, Article.title, Article.embedding).where(Article.embedding.is_not(None))
+        select(Article.id, Article.title, Article.embedding)
+        .where(Article.embedding.is_not(None))
+        .where(Article.published_at >= cutoff)
     )
     rows = result.all()
     if len(rows) < settings.HDBSCAN_MIN_CLUSTER_SIZE:
