@@ -43,7 +43,7 @@ class ArticleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    source_id: int
+    source_id: int | None
     title: str
     url: str
     published_at: datetime | None
