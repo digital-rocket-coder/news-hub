@@ -113,11 +113,14 @@ async def _do_clustering(db: AsyncSession) -> int:
 async def _build_topic_links(
     db: AsyncSession,
     topics: list[Topic],
-    embeddings: np.ndarray,
-    labels: np.ndarray,
+    embeddings: "np.ndarray",
+    labels: "np.ndarray",
     cluster_article_map: dict[int, list[int]],
 ) -> None:
     """Create TopicLink rows based on cosine similarity between topic centroids."""
+    import numpy as np
+    from sklearn.preprocessing import normalize
+
     if len(topics) < 2:
         return
 
