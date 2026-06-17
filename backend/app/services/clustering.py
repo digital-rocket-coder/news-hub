@@ -4,9 +4,6 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 
-import numpy as np
-from sklearn.cluster import HDBSCAN
-from sklearn.preprocessing import normalize
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 async def run_clustering(db: AsyncSession) -> int:
     """Cluster all embedded articles into topics. Returns number of topics created/updated."""
+    import numpy as np
+    from sklearn.cluster import HDBSCAN
+    from sklearn.preprocessing import normalize
 
     # 1. Load articles with embeddings
     result = await db.execute(

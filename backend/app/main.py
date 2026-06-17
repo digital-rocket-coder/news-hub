@@ -19,14 +19,14 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 async def lifespan(app: FastAPI):
     import sys, traceback
     try:
-        print("STARTUP: connecting to DB...", flush=True)
+        sys.stderr.write("STARTUP: connecting to DB...\n"); sys.stderr.flush()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        print("STARTUP: DB ready, starting scheduler...", flush=True)
+        sys.stderr.write("STARTUP: DB ready, starting scheduler...\n"); sys.stderr.flush()
         start_scheduler()
-        print("STARTUP: done.", flush=True)
+        sys.stderr.write("STARTUP: done.\n"); sys.stderr.flush()
     except Exception as e:
-        print(f"STARTUP ERROR: {e}", file=sys.stderr, flush=True)
+        sys.stderr.write(f"STARTUP ERROR: {e}\n"); sys.stderr.flush()
         traceback.print_exc()
         raise
     yield
